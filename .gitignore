@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+dist/
+build/
+*.egg-info/
+.venv/
+venv/
+.DS_Store
+
+# スクリーンショット（機密が写り込むことがある）
+スクリーンショット*.png
+Screenshot*.png

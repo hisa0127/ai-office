@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>スプライト確認</title>
+<style>
+  body { background:#6e5238; color:#f4f1e4; font-family:"Hiragino Kaku Gothic ProN",sans-serif;
+         margin:0; padding:20px; }
+  h1 { font-size:15px; margin:0 0 4px; }
+  .note { font-size:12px; opacity:.75; margin:0 0 18px; }
+  .row { display:flex; align-items:flex-end; gap:22px; margin-bottom:6px;
+         background:#7a5c3f; padding:10px 14px; border:2px solid #5a422c; }
+  .who { width:150px; flex:none; }
+  .who b { display:block; font-size:13px; }
+  .who span { font-size:11px; opacity:.75; }
+  .grp { text-align:center; }
+  .grp .lbl { font-size:10px; opacity:.7; margin-top:4px; }
+  canvas { image-rendering: pixelated; display:inline-block; margin-right:2px; }
+  .anim { border-left:2px dashed rgba(255,255,255,.25); padding-left:18px; }
+</style>
+</head>
+<body>
+<h1>キャラクタースプライト 24×32 / 4方向 / フラット塗り＋色つき輪郭</h1>
+<p class="note">左から: 正面・背面・右向き（左向きは反転）。右端は歩行アニメーション。</p>
+<div id="out"></div>
+
+<script src="../src/ai_office/web/sprites.js"></script>
+<script>
+const SCALE = 4;
+
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const cl = (v) => Math.max(0, Math.min(255, v));
+  const r = cl((n >> 16) + amt), g = cl(((n >> 8) & 255) + amt), b = cl((n & 255) + amt);
+  return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+}
+
+function palFor(look) {
+  const prop = look.prop || '#c9a06a';
+  const cap = look.cap || look.shirt;
+  return {
+    H: look.hair,  h: shade(look.hair, -18),
+    S: look.skin,  s: shade(look.skin, -14),
+    P: '#3a2f3d',  W: '#ffffff',  M: '#c4736b',
+    B: look.shirt, b: shade(look.shirt, -16),
+    A: look.accent,
+    G: look.pants, g: shade(look.pants, -14),
+    O: shade(look.pants, -34),
+    C: cap,        c: shade(cap, -18),
+    X: prop,       x: shade(prop, -22),
+    1: shade(look.hair, -46), 2: shade(look.skin, -42), 3: shade(look.shirt, -46),
+    4: shade(look.pants, -40), 5: shade(cap, -46), 6: shade(prop, -46),
+  };
+}
+
+const ROLES = [
+  { label:'AI秘書', id:'ai-secretary', kits:['long'], prop:'clipboard',
+    look:{ hair:'#8a5a34', skin:'#ffd9b8', shirt:'#3fb08a', pants:'#3d4a70', accent:'#ffffff', prop:'#a87a4a' } },
+  { label:'AI PM', id:'ai-pm', kits:['cap'], prop:'binder',
+    look:{ hair:'#3a3244', skin:'#f5c79c', shirt:'#4a7fe0', pants:'#37406b', accent:'#eaf2ff', cap:'#e05a5a', prop:'#4a7fe0' } },
+  { label:'AIディレクター', id:'ai-director', kits:['glasses'], prop:'papers',
+    look:{ hair:'#5c3d24', skin:'#e8b48a', shirt:'#9061d8', pants:'#4a3f6b', accent:'#f6ecff', prop:'#d8c8a8' } },
+  { label:'AIデザイナー', id:'ai-designer', kits:['bun'], prop:'palette',
+    look:{ hair:'#e08a3c', skin:'#ffd9b8', shirt:'#e86ba0', pants:'#6b4a68', accent:'#ffeef6', prop:'#3fb8d8' } },
+  { label:'AIコーダー', id:'ai-coder', kits:['spiky','phones'], prop:'laptop',
+    look:{ hair:'#4a4a68', skin:'#f5c79c', shirt:'#3fb8d8', pants:'#2f3550', accent:'#eafff2', prop:'#3fb08a' } },
+  { label:'AIテスター', id:'ai-tester', kits:['ponytail','glasses'], prop:'loupe',
+    look:{ hair:'#a8683c', skin:'#e8b48a', shirt:'#6cb83f', pants:'#3d4a70', accent:'#eaf8ff', prop:'#e0e6f0' } },
+  { label:'AI営業', id:'ai-sales', kits:[], prop:'bag',
+    look:{ hair:'#2e2a34', skin:'#d99e78', shirt:'#f0913c', pants:'#5a4038', accent:'#fff0e6', prop:'#8a5a3c' } },
+  { label:'社長（あなた）', id:'boss', kits:['crown','beard'], prop:'scepter',
+    look:{ hair:'#b8bcd0', skin:'#ffd9b8', shirt:'#5a6488', pants:'#3d4a70', accent:'#ffffff', prop:'#f0c03c' } },
+];
+
+function draw(role, dir, frame, flip) {
+  const cv = document.createElement('canvas');
+  cv.width = SPRITE_W * SCALE; cv.height = (SPRITE_H + 4) * SCALE;
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  const pal = palFor(role.look);
+  const rows = personSprite(dir, frame, role.kits);
+
+  const px = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x * SCALE, y * SCALE, w * SCALE, h * SCALE); };
+
+  if (flip) { g.translate(cv.width, 0); g.scale(-1, 1); }
+
+  for (let r = 0; r < rows.length; r++) {
+    for (let c = 0; c < rows[r].length; c++) {
+      const k = rows[r][c];
+      if (k === '.' || !pal[k]) continue;
+      px(c, r + 2, 1, 1, pal[k]);
+    }
+  }
+
+  // 小物
+  const prop = PROPS[role.prop];
+  if (prop && dir !== 'back') {
+    for (const p of (dir === 'side' ? prop.side : prop.front)) px(p.x, p.y + 2, p.w, p.h, pal[p.k]);
+  }
+  return cv;
+}
+
+const out = document.getElementById('out');
+for (const role of ROLES) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = `<div class="who"><b>${role.label}</b><span>${role.id}<br>${role.kits.join(' + ') || '—'}</span></div>`;
+
+  for (const [dir, flip, lbl] of [['front', false, '正面'], ['back', false, '背面'],
+                                  ['side', false, '右'], ['side', true, '左']]) {
+    const g = document.createElement('div');
+    g.className = 'grp';
+    g.appendChild(draw(role, dir, null, flip));
+    const cap = document.createElement('div');
+    cap.className = 'lbl'; cap.textContent = lbl;
+    g.appendChild(cap);           // innerHTML を足すと canvas が作り直されて中身が消える
+    row.appendChild(g);
+  }
+
+  const anim = document.createElement('div');
+  anim.className = 'grp anim';
+  for (const f of [0, 1, 2, 3]) anim.appendChild(draw(role, 'front', f, false));
+  for (const f of [0, 1, 2, 3]) anim.appendChild(draw(role, 'side', f, false));
+  const cap2 = document.createElement('div');
+  cap2.className = 'lbl'; cap2.textContent = '歩行4コマ（正面 / 横）';
+  anim.appendChild(cap2);
+  row.appendChild(anim);
+
+  out.appendChild(row);
+}
+</script>
+</body>
+</html>

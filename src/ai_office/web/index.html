@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Office</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__brand">
+    <span class="logo">▚</span>
+    <h1 id="app-title">AI Office</h1>
+    <span class="topbar__ws" id="ws-name">—</span>
+  </div>
+  <div class="topbar__meta">
+    <span class="stat" id="stat-working"><i class="dot dot--working"></i><span data-i18n="working"></span> <b>0</b></span>
+    <span class="stat" id="stat-idle"><i class="dot dot--idle"></i><span data-i18n="idle"></span> <b>0</b></span>
+    <span class="stat" id="stat-stalled"><i class="dot dot--stalled"></i><span data-i18n="stalled"></span> <b>0</b></span>
+    <span class="clock" id="clock">--:--:--</span>
+    <span class="conn" id="conn" data-state="connecting">···</span>
+  </div>
+</header>
+
+<main class="layout">
+
+  <section class="office">
+    <div class="stage" id="stage">
+      <canvas id="scene" width="400" height="300"></canvas>
+      <div class="overlay" id="overlay"></div>
+      <p class="stage__empty" id="stage-empty" hidden></p>
+    </div>
+    <div class="legend">
+      <span><i class="dot dot--working"></i><span data-i18n="legendWork"></span></span>
+      <span><i class="dot dot--idle"></i><span data-i18n="legendBreak"></span></span>
+      <span><i class="dot dot--stalled"></i><span data-i18n="legendStalled"></span></span>
+      <span class="legend__hint" data-i18n="legendHint"></span>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <div class="card card--boss">
+      <h2 data-i18n="cardBoss"></h2>
+      <p class="boss-status" id="boss-status">—</p>
+      <p class="boss-prompt" id="boss-prompt"></p>
+    </div>
+
+    <div class="card">
+      <h2><span data-i18n="cardStalled"></span> <span class="badge" id="stalled-count">0</span></h2>
+      <ul class="list" id="stalled-list"></ul>
+    </div>
+
+    <div class="card" id="card-projects" hidden>
+      <h2 data-i18n="cardProjects"></h2>
+      <ul class="list" id="project-list"></ul>
+    </div>
+
+    <div class="card card--grow">
+      <h2 data-i18n="cardTimeline"></h2>
+      <ul class="list list--timeline" id="timeline"></ul>
+    </div>
+  </aside>
+
+</main>
+
+<div class="detail" id="detail" hidden>
+  <div class="detail__inner">
+    <button class="detail__close" id="detail-close" aria-label="close">×</button>
+    <div id="detail-body"></div>
+  </div>
+</div>
+
+<script src="/sprites.js"></script>
+<script src="/layout.js"></script>
+<script src="/i18n.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

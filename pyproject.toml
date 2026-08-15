@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-office"
+dynamic = ["version"]
+description = "Watch your Claude Code subagents work in a pixel-art office"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+keywords = ["claude-code", "agents", "dashboard", "pixel-art", "observability"]
+authors = [{ name = "L'uoly Web" }]
+urls = { Homepage = "https://github.com/hisa0127/ai-office", Source = "https://github.com/hisa0127/ai-office" }
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Quality Assurance",
+  "License :: OSI Approved :: MIT License",
+]
+dependencies = []          # 標準ライブラリのみ
+
+[project.scripts]
+ai-office = "ai_office.cli:main"
+
+[tool.hatch.version]
+path = "src/ai_office/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_office"]
+
