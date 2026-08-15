@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ai-office"
+name = "ai-office-dashboard"
 dynamic = ["version"]
 description = "Watch your Claude Code subagents work in a pixel-art office"
 readme = "README.md"

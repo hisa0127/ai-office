@@ -8,12 +8,14 @@ and they head back to the sofa. When one stops responding, their screen turns re
 tells you who is busy, who is free, and what is stuck — no labels to read.
 
 ```bash
-pipx install ai-office
+pipx install ai-office-dashboard
 cd your-project
 ai-office
 ```
 
 （開発版は `pipx install git+https://github.com/hisa0127/ai-office.git`）
+
+The command is `ai-office`; the package on PyPI is `ai-office-dashboard`.
 
 Everything runs on `127.0.0.1`. **No data ever leaves your machine** — the tool only reads the
 session logs Claude Code already writes to `~/.claude/projects/`.
@@ -42,13 +44,14 @@ Claude Code でマルチエージェントを回していると、「誰が今�
 ## インストール
 
 ```bash
-pipx install ai-office        # または: uv tool install ai-office
+pipx install ai-office-dashboard    # または: uv tool install ai-office-dashboard
 
 # 最新のソースから入れる場合
 pipx install git+https://github.com/hisa0127/ai-office.git
 ```
 
 Python 3.9 以上。依存パッケージはありません（標準ライブラリのみ）。
+PyPI上の名前は `ai-office-dashboard`、起動コマンドは `ai-office` です。
 
 ## 使い方
 
