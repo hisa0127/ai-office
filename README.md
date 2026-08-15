@@ -13,6 +13,8 @@ cd your-project
 ai-office
 ```
 
+（開発版は `pipx install git+https://github.com/hisa0127/ai-office.git`）
+
 Everything runs on `127.0.0.1`. **No data ever leaves your machine** — the tool only reads the
 session logs Claude Code already writes to `~/.claude/projects/`.
 
@@ -41,6 +43,9 @@ Claude Code でマルチエージェントを回していると、「誰が今�
 
 ```bash
 pipx install ai-office        # または: uv tool install ai-office
+
+# 最新のソースから入れる場合
+pipx install git+https://github.com/hisa0127/ai-office.git
 ```
 
 Python 3.9 以上。依存パッケージはありません（標準ライブラリのみ）。
@@ -120,11 +125,6 @@ Claude Code は会話の履歴を `~/.claude/projects/<ワークスペース>/*.
 ## 料金
 
 無料です。エージェント数の制限も、アカウント登録も、利用状況の送信もありません。MITライセンスです。
-
-作者が実際に運用しているAI組織の作り方（設計の考え方・承認ゲート・設定ファイル一式）は
-note の記事にまとめています。このツールはその記事の中で使っているものを、そのまま公開したものです。
-
-〔note記事のリンク〕
 
 ## プライバシー
 
