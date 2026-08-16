@@ -22,6 +22,9 @@ session logs Claude Code already writes to `~/.claude/projects/`.
 
 Free and unrestricted — no agent limit, no account, no telemetry.
 
+The author's write-up on designing an "AI organization" with Claude Code subagents
+(in Japanese, paid): https://note.com/luolyweb/n/na88c2b369218
+
 ---
 
 # AI Office（日本語）
@@ -140,6 +143,11 @@ Claude Code は会話の履歴を `~/.claude/projects/<ワークスペース>/*.
 ## 料金
 
 無料です。エージェント数の制限も、アカウント登録も、利用状況の送信もありません。MITライセンスです。
+
+作者が実際に運用しているAI組織の作り方（設計の考え方・承認ゲート・設定ファイル一式）は
+note の記事にまとめています。このツールはその記事の中で使っているものを、そのまま公開したものです。
+
+**[AI社員7人を雇ったら、最初の設計が間違っていた話](https://note.com/luolyweb/n/na88c2b369218)**（有料）
 
 ## プライバシー
 

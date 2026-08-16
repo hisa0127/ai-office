@@ -11,7 +11,7 @@ requires-python = ">=3.9"
 license = { file = "LICENSE" }
 keywords = ["claude-code", "agents", "dashboard", "pixel-art", "observability"]
 authors = [{ name = "L'uoly Web" }]
-urls = { Homepage = "https://github.com/hisa0127/ai-office", Source = "https://github.com/hisa0127/ai-office" }
+urls = { Homepage = "https://github.com/hisa0127/ai-office", Source = "https://github.com/hisa0127/ai-office", "Article (JA)" = "https://note.com/luolyweb/n/na88c2b369218" }
 classifiers = [
   "Environment :: Console",
   "Intended Audience :: Developers",
