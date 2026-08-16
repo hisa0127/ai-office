@@ -70,6 +70,37 @@ def slug_for_path(p: Path) -> str:
     return re.sub(r"[^a-zA-Z0-9]", "-", str(p))
 
 
+def _records_workspace(log_dir: Path, workspace: Path) -> bool:
+    """そのログ置き場が、指定ワークスペースのものか中身を見て判定する。
+
+    ディレクトリ名の変換規則はOSやバージョンで変わりうるので、名前を当てにせず
+    ログ本文に記録された cwd で突き合わせる。Windows/Linux でも同じ判定が効く。
+    """
+    try:
+        files = sorted(log_dir.glob("*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True)
+    except OSError:
+        return False
+    for f in files[:3]:
+        try:
+            with f.open("r", encoding="utf-8", errors="replace") as fh:
+                for _ in range(80):
+                    line = fh.readline()
+                    if not line:
+                        break
+                    if '"cwd"' not in line:
+                        continue
+                    try:
+                        cwd = json.loads(line).get("cwd")
+                    except (json.JSONDecodeError, ValueError):
+                        continue
+                    if not cwd:
+                        continue
+                    return Path(cwd) == workspace or str(cwd) == str(workspace)
+        except OSError:
+            continue
+    return False
+
+
 def find_transcript_dir(workspace: Path, explicit: Optional[str] = None) -> Optional[Path]:
     """ワークスペースに対応するセッションログのディレクトリを探す"""
     if explicit:
@@ -83,9 +114,16 @@ def find_transcript_dir(workspace: Path, explicit: Optional[str] = None) -> Opti
     if not base.exists():
         return None
 
-    # 末尾一致(ワークスペースを移動した場合など)。複数あれば最終更新が新しいもの
+    dirs = [d for d in base.iterdir() if d.is_dir()]
+
+    # ディレクトリ名の規則に頼らず、ログ本文の cwd で突き合わせる
+    for d in sorted(dirs, key=lambda d: d.stat().st_mtime, reverse=True):
+        if _records_workspace(d, workspace):
+            return d
+
+    # 最後の手段: 末尾一致(ワークスペースを移動した場合など)
     tail = slug_for_path(Path(workspace.name))
-    cands = [d for d in base.iterdir() if d.is_dir() and d.name.endswith(tail)]
+    cands = [d for d in dirs if d.name.endswith(tail)]
     if cands:
         return max(cands, key=lambda d: d.stat().st_mtime)
     return None

@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from ai_office import roster  # noqa: E402
+from ai_office import config, roster  # noqa: E402
 from ai_office.scanner import Scanner  # noqa: E402
 
 
@@ -136,6 +136,47 @@ class TestScanner(unittest.TestCase):
         sc = Scanner(directory=self.dir)
         sc.scan()
         self.assertEqual(sc.runs_for("ai-coder")[0].project, "2026-07_sample_コーポレートサイト")
+
+
+class TestLogDirDetection(unittest.TestCase):
+    """ログ置き場の特定。ディレクトリ名の規則はOSで変わりうるので、
+    名前が一致しなくても中身の cwd で見つけられること"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.home = Path(self.tmp.name)
+        self.base = self.home / ".claude" / "projects"
+        self.base.mkdir(parents=True)
+        self.ws = self.home / "work" / "myproject"
+        self.ws.mkdir(parents=True)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _log_dir(self, name, cwd):
+        d = self.base / name
+        d.mkdir()
+        (d / "s1.jsonl").write_text(
+            _line(type="assistant", cwd=str(cwd), message={"role": "assistant", "content": []}),
+            encoding="utf-8")
+        return d
+
+    def test_finds_by_slug(self):
+        want = self._log_dir(config.slug_for_path(self.ws), self.ws)
+        with unittest.mock.patch.object(Path, "home", staticmethod(lambda: self.home)):
+            self.assertEqual(config.find_transcript_dir(self.ws), want)
+
+    def test_finds_by_cwd_when_name_differs(self):
+        """Windows等で命名規則が違っても、ログ本文の cwd で見つかること"""
+        want = self._log_dir("C--totally-different-naming", self.ws)
+        self._log_dir("some-other-project", self.home / "work" / "other")
+        with unittest.mock.patch.object(Path, "home", staticmethod(lambda: self.home)):
+            self.assertEqual(config.find_transcript_dir(self.ws), want)
+
+    def test_returns_none_when_absent(self):
+        self._log_dir("unrelated", self.home / "work" / "other")
+        with unittest.mock.patch.object(Path, "home", staticmethod(lambda: self.home)):
+            self.assertIsNone(config.find_transcript_dir(self.ws))
 
 
 class TestServerPort(unittest.TestCase):

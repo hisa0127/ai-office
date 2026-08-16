@@ -53,6 +53,18 @@ pipx install git+https://github.com/hisa0127/ai-office.git
 Python 3.9 以上。依存パッケージはありません（標準ライブラリのみ）。
 PyPI上の名前は `ai-office-dashboard`、起動コマンドは `ai-office` です。
 
+### 対応環境
+
+**macOS で動作確認しています。** Windows / Linux でも動く作りにしてありますが、
+作者の手元に環境がないため未検証です。
+
+- 配布形式は OS 非依存（`py3-none-any`）で、外部コマンドにも依存していません
+- 設定ファイルの置き場は OS ごとに切り替えます（Windows は `%APPDATA%`、他は `~/.config`）
+- セッションログの場所は、フォルダ名の規則ではなく**ログ本文に記録された作業ディレクトリ**で
+  照合するので、命名規則が異なる環境でも見つけられます（v0.1.1〜）
+
+Windows / Linux で動いた・動かなかったという報告は Issue でお知らせいただけると助かります。
+
 ## 使い方
 
 ```bash
