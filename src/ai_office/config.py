@@ -31,7 +31,11 @@ DEFAULTS: Dict[str, Any] = {
     "title": None,              # None ならワークスペース名
     "port": 4321,
     "pollSeconds": 2,
-    "stallMinutes": 15,         # 応答が返らないまま滞留とみなす時間
+    # これを超えた稼働に印を付ける。「詰まっている」という判定ではない。
+    # 非同期起動ではサブエージェントの途中経過がこのログに現れないので、
+    # 止まっているのか働いているのかを、このツールからは区別できない。
+    # 出せるのは「起動から何分経ったか」という事実だけなので、表示もそう振る舞う。
+    "stallMinutes": 60,
     "awayMinutes": 5,           # 社長(メイン会話)が離席とみなす時間
     "agents": {},               # id -> {label, variant, shirt, hair, order, hidden}
     "hide": [],                 # 表示しないエージェントID

@@ -6,7 +6,18 @@
        "description":"...", "subagent_type":"ai-secretary", "run_in_background":false}}
 
 完了すると同じ tool_use_id を持つ tool_result が現れる。この **起動と完了の対** を追跡して
-「いま誰が動いているか」を出す。ファイルは数百MBになるので、
+「いま誰が動いているか」を出す。
+
+ただし **非同期起動** は別扱いにする。非同期では tool_result が「起動しました」という通知として
+即座に返るため、これを完了とみなすと、実際には何十分も働いているエージェントが
+起動1秒後に退勤したことになってしまう。本当の完了は、あとから届く <task-notification> が
+起動時と同じ tool_use_id を持って知らせる。
+
+非同期かどうかを起動時の入力 run_in_background で判定してはいけない。このキーは
+**省略されることがあり、省略時は非同期が既定**であるため、入力を見ると既定の起動が
+すべて同期と誤判定される。結果側の toolUseResult.isAsync / status="async_launched" を正とする。
+
+ファイルは数百MBになるので、
   - ファイルごとにバイト位置を覚えて追記分だけ読む
   - 関係ない行は json.loads せず、部分文字列で捨てる
 の2点で軽くしている。
@@ -45,6 +56,81 @@ _INTERNAL_MARKERS = (
     "Async agent launched successfully",
     "launched successfully",
 )
+
+# 非同期起動の判定に使う唯一のマーカー。表示抑止(_INTERNAL_MARKERS)より厳しくする。
+_ASYNC_MARK = "Async agent launched successfully"
+
+# バックグラウンド起動の本当の完了通知。起動時と同じ tool_use_id を持って届く。
+# タグ名がハイフン区切り(<tool-use-id>)で、tool_result のキー("tool_use_id")とは綴りが違う。
+_NOTE_MARK = "<task-notification>"
+_NOTE_ID_RE = re.compile(r"<tool-use-id>\s*(.*?)\s*</tool-use-id>", re.S)
+_NOTE_STATUS_RE = re.compile(r"<status>\s*(.*?)\s*</status>", re.S)
+_NOTE_RESULT_RE = re.compile(r"<result>\s*(.*?)\s*</result>", re.S)
+_NOTE_SUMMARY_RE = re.compile(r"<summary>\s*(.*?)\s*</summary>", re.S)
+
+
+def _as_text(content) -> str:
+    """文字列のこともブロック配列のこともある本文を、文字列にして返す"""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            b.get("text", "") for b in content
+            if isinstance(b, dict) and b.get("type") == "text"
+        )
+    return ""
+
+
+# 完了通知の status。実ログで観測できたのは completed / failed / killed の3種類。
+# 「failed 以外は成功」にすると killed(途中停止)が成功として集計され、
+# 統計上は正常に見えるのに実際は中断している、という一番気づけない壊れ方をする。
+# 知らない値は成功にしない = 間違っていても画面に出るので気づける、という方に倒す。
+_OK_STATUSES = ("completed",)
+
+
+def _status_is_ok(status: Optional[str]) -> bool:
+    if status is None:
+        return True          # status が無い形式は判定材料が無いので成功扱い
+    return status.strip().lower() in _OK_STATUSES
+
+
+def _is_async_result(record: dict, block: dict) -> bool:
+    """その tool_result が「起動しました」の通知か（＝仕事の完了ではない）を判定する。
+
+    起動時の run_in_background は省略されることがあり、**省略時は非同期が既定**。
+    入力フラグだけを見ると既定の起動がすべて同期扱いになり、0秒で退勤してしまう。
+    結果側には isAsync / status="async_launched" として明示されるので、そちらを正とする。
+    """
+    r = record.get("toolUseResult")
+    if isinstance(r, dict) and (r.get("isAsync") or r.get("status") == "async_launched"):
+        return True
+    # toolUseResult を持たない古いログ向けの保険。表示抑止用の _INTERNAL_MARKERS は
+    # "launched successfully" のような緩い断片を含むので流用しない。
+    # 通常の報告文に紛れ込むと、その実行が永久に「稼働中」のまま残ってしまう。
+    return _ASYNC_MARK in _as_text(block.get("content"))
+
+
+def _notification_text(o: dict) -> str:
+    """完了通知の本文を取り出す。無ければ空文字。
+
+    同じ通知がログに3通りの形で現れる(Claude Code 2.1系で確認):
+      失敗時  type=user            message.content
+      成功時  type=queue-operation 直下の content
+      成功時  type=attachment      attachment.prompt
+    どれか1つだけ読んでいると、片方の結末で永久に退勤しなくなる。
+    なお自分の発言が通知を引用している場合があるので assistant は除外する。
+    """
+    if o.get("type") == "assistant":
+        return ""
+    for cand in (
+        (o.get("message") or {}).get("content"),
+        o.get("content"),
+        (o.get("attachment") or {}).get("prompt"),
+    ):
+        text = _as_text(cand)
+        if text.lstrip().startswith(_NOTE_MARK):
+            return text
+    return ""
 
 
 def _result_text(block: dict) -> str:
@@ -164,7 +250,8 @@ class Scanner:
         has_result = '"tool_use_id"' in line
         has_prompt = '"last-prompt"' in line
         has_title = '"ai-title"' in line
-        if not (has_call or has_result or has_prompt or has_title):
+        has_note = _NOTE_MARK in line          # ハイフン綴りなので has_result では拾えない
+        if not (has_call or has_result or has_prompt or has_title or has_note):
             return
 
         try:
@@ -180,11 +267,27 @@ class Scanner:
             sess.title = str(o["aiTitle"])
             return
 
+        ts = _parse_ts(o.get("timestamp")) or sess.mtime
+
+        # バックグラウンド起動の完了通知。tool_result より後に届く。
+        # 同じ通知が複数行に分かれて来るので、2度目以降は pop が空振りして何も起きない
+        note = _notification_text(o)
+        if note:
+            m = _NOTE_ID_RE.search(note)
+            run = self.open_runs.pop(m.group(1), None) if m else None
+            if run:
+                st = _NOTE_STATUS_RE.search(note)
+                body = _NOTE_RESULT_RE.search(note) or _NOTE_SUMMARY_RE.search(note)
+                self._finish(
+                    run, ts, sess,
+                    ok=_status_is_ok(st.group(1) if st else None),
+                    summary=body.group(1) if body else "",
+                )
+            return
+
         content = (o.get("message") or {}).get("content")
         if not isinstance(content, list):
             return
-
-        ts = _parse_ts(o.get("timestamp")) or sess.mtime
 
         for b in content:
             if not isinstance(b, dict):
@@ -210,26 +313,54 @@ class Scanner:
                 continue
 
             if b.get("type") == "tool_result":
-                run = self.open_runs.pop(b.get("tool_use_id", ""), None)
+                tid = b.get("tool_use_id", "")
+                run = self.open_runs.get(tid)
                 if not run:
                     continue
-                done = Done(
-                    agent_id=run.agent_id,
-                    description=run.description,
-                    project=run.project,
-                    started_at=run.started_at,
-                    finished_at=ts,
-                    duration_ms=max(0.0, ts - run.started_at),
+
+                # 起動そのものに失敗した場合(エージェント名の打ち間違いなど)。
+                # 実体が動いていないので完了通知は永久に来ない。ここで閉じないと在席したままになる。
+                if b.get("is_error"):
+                    self.open_runs.pop(tid, None)
+                    self._finish(run, ts, sess, ok=False, summary=_result_text(b))
+                    continue
+
+                # 非同期起動かどうかは、起動時の入力ではなく **結果側の申告** で判定する。
+                # run_in_background は省略されることがあり(省略時は非同期が既定)、
+                # 入力フラグを見ると既定の起動が全部「同期」と誤判定される。
+                if run.background or _is_async_result(o, b):
+                    # 「起動しました」の通知であって仕事の完了ではない。
+                    # 本当の完了は <task-notification> で届くので、ここでは席を立たせない。
+                    run.background = True
+                    sess.last_activity = max(sess.last_activity, ts)
+                    continue
+
+                self.open_runs.pop(tid, None)
+                self._finish(
+                    run, ts, sess,
                     ok=not b.get("is_error"),
-                    summary=" ".join(_result_text(b).split())[:160],
+                    summary=_result_text(b),
                 )
-                self.history.insert(0, done)
-                del self.history[MAX_HISTORY:]
-                st = self.stats.setdefault(run.agent_id, {"runs": 0, "total_ms": 0.0, "last": None})
-                st["runs"] += 1
-                st["total_ms"] += done.duration_ms
-                st["last"] = done
-                sess.last_activity = max(sess.last_activity, ts)
+
+    def _finish(self, run: Run, ts: float, sess: Session, ok: bool, summary: str) -> None:
+        """1件の稼働を終了として記録する。通常起動とバックグラウンド起動で共通"""
+        done = Done(
+            agent_id=run.agent_id,
+            description=run.description,
+            project=run.project,
+            started_at=run.started_at,
+            finished_at=ts,
+            duration_ms=max(0.0, ts - run.started_at),
+            ok=ok,
+            summary=" ".join(summary.split())[:160],
+        )
+        self.history.insert(0, done)
+        del self.history[MAX_HISTORY:]
+        st = self.stats.setdefault(run.agent_id, {"runs": 0, "total_ms": 0.0, "last": None})
+        st["runs"] += 1
+        st["total_ms"] += done.duration_ms
+        st["last"] = done
+        sess.last_activity = max(sess.last_activity, ts)
 
     # ------------------------------------------------------------ 参照
 

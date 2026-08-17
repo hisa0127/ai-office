@@ -110,7 +110,7 @@ Claude Code は会話の履歴を `~/.claude/projects/<ワークスペース>/*.
   "lang": "ja",
   "title": "うちのAI組織",
   "port": 4321,
-  "stallMinutes": 15,
+  "stallMinutes": 60,
   "hide": ["general-purpose"],
   "agents": {
     "ai-secretary": { "label": "AI秘書", "order": 1,
